@@ -343,12 +343,12 @@ namespace MimeKit.Cryptography {
 			if (mailbox == null)
 				throw new ArgumentNullException ("mailbox");
 
-			foreach (PgpPublicKeyRing keyring in PublicKeyRingBundle.GetKeyRings ()) {
-				if (!PgpPublicKeyMatches (keyring.GetPublicKey (), mailbox))
+			foreach (var keyring in PublicKeyRingBundle.KeyRings) {
+				if (!PgpPublicKeyMatches (keyring.PublicKey, mailbox))
 					continue;
 
-				foreach (PgpPublicKey key in keyring.GetPublicKeys ()) {
-					if (!key.IsEncryptionKey || key.IsRevoked ())
+				foreach (PgpPublicKey key in keyring.PublicKeys) {
+					if (!key.IsEncryptionKey || key.IsRevoked)
 						continue;
 
 					long seconds = key.GetValidSeconds ();
@@ -426,16 +426,16 @@ namespace MimeKit.Cryptography {
 			if (mailbox == null)
 				throw new ArgumentNullException ("mailbox");
 
-			foreach (PgpSecretKeyRing keyring in SecretKeyRingBundle.GetKeyRings ()) {
-				if (!PgpSecretKeyMatches (keyring.GetSecretKey (), mailbox))
+			foreach (var keyring in SecretKeyRingBundle.GetKeyRings ()) {
+                if (!PgpSecretKeyMatches(keyring.FirstSecretKey, mailbox))
 					continue;
 
-				foreach (PgpSecretKey key in keyring.GetSecretKeys ()) {
+				foreach (var key in keyring.SecretKeys) {
 					if (!key.IsSigningKey)
 						continue;
 
 					var pubkey = key.PublicKey;
-					if (pubkey.IsRevoked ())
+					if (pubkey.IsRevoked)
 						continue;
 
 					long seconds = pubkey.GetValidSeconds ();
@@ -495,7 +495,7 @@ namespace MimeKit.Cryptography {
 					throw new OperationCanceledException ();
 
 				try {
-					var privateKey = key.ExtractPrivateKey (password.ToCharArray ());
+					var privateKey = key.ExtractPrivateKey (password);
 
 					// Note: the private key will be null if the private key is empty.
 					if (privateKey == null)
@@ -529,10 +529,11 @@ namespace MimeKit.Cryptography {
 		/// <exception cref="System.UnauthorizedAccessException">
 		/// 3 bad attempts were made to unlock the secret key.
 		/// </exception>
-		protected PgpPrivateKey GetPrivateKey (long keyId)
+		protected PgpPrivateKey GetPrivateKey (UInt64 keyId)
 		{
-			foreach (PgpSecretKeyRing keyring in SecretKeyRingBundle.GetKeyRings ()) {
-				foreach (PgpSecretKey key in keyring.GetSecretKeys ()) {
+			foreach (var keyring in SecretKeyRingBundle.GetKeyRings ()) {
+				foreach (var key in keyring.SecretKeys)
+                {
 					if (key.KeyId != keyId)
 						continue;
 
@@ -547,11 +548,11 @@ namespace MimeKit.Cryptography {
 		}
 
 		/// <summary>
-		/// Gets the equivalent <see cref="Org.BouncyCastle.Bcpg.HashAlgorithmTag"/> for the 
+		/// Gets the equivalent <see cref="Org.BouncyCastle.Bcpg.HashAlgorithms"/> for the 
 		/// specified <see cref="DigestAlgorithm"/>. 
 		/// </summary>
 		/// <remarks>
-		/// Maps a <see cref="DigestAlgorithm"/> to the equivalent <see cref="Org.BouncyCastle.Bcpg.HashAlgorithmTag"/>.
+		/// Maps a <see cref="DigestAlgorithm"/> to the equivalent <see cref="Org.BouncyCastle.Bcpg.HashAlgorithms"/>.
 		/// </remarks>
 		/// <returns>The hash algorithm.</returns>
 		/// <param name="digestAlgo">The digest algorithm.</param>
@@ -560,22 +561,22 @@ namespace MimeKit.Cryptography {
 		/// </exception>
 		/// <exception cref="System.NotSupportedException">
 		/// <paramref name="digestAlgo"/> does not have an equivalent
-		/// <see cref="Org.BouncyCastle.Bcpg.HashAlgorithmTag"/> value.
+		/// <see cref="Org.BouncyCastle.Bcpg.HashAlgorithms"/> value.
 		/// </exception>
-		public static HashAlgorithmTag GetHashAlgorithm (DigestAlgorithm digestAlgo)
+		public static HashAlgorithms GetHashAlgorithm (DigestAlgorithm digestAlgo)
 		{
 			switch (digestAlgo) {
-			case DigestAlgorithm.MD5:       return HashAlgorithmTag.MD5;
-			case DigestAlgorithm.Sha1:      return HashAlgorithmTag.Sha1;
-			case DigestAlgorithm.RipeMD160: return HashAlgorithmTag.RipeMD160;
-			case DigestAlgorithm.DoubleSha: return HashAlgorithmTag.DoubleSha;
-			case DigestAlgorithm.MD2:       return HashAlgorithmTag.MD2;
-			case DigestAlgorithm.Tiger192:  return HashAlgorithmTag.Tiger192;
-			case DigestAlgorithm.Haval5160: return HashAlgorithmTag.Haval5pass160;
-			case DigestAlgorithm.Sha256:    return HashAlgorithmTag.Sha256;
-			case DigestAlgorithm.Sha384:    return HashAlgorithmTag.Sha384;
-			case DigestAlgorithm.Sha512:    return HashAlgorithmTag.Sha512;
-			case DigestAlgorithm.Sha224:    return HashAlgorithmTag.Sha224;
+			case DigestAlgorithm.MD5:       return HashAlgorithms.MD5;
+			case DigestAlgorithm.Sha1:      return HashAlgorithms.Sha1;
+			case DigestAlgorithm.RipeMD160: return HashAlgorithms.RipeMD160;
+			case DigestAlgorithm.DoubleSha: return HashAlgorithms.DoubleSha;
+			case DigestAlgorithm.MD2:       return HashAlgorithms.MD2;
+			case DigestAlgorithm.Tiger192:  return HashAlgorithms.Tiger192;
+			case DigestAlgorithm.Haval5160: return HashAlgorithms.Haval5pass160;
+			case DigestAlgorithm.Sha256:    return HashAlgorithms.Sha256;
+			case DigestAlgorithm.Sha384:    return HashAlgorithms.Sha384;
+			case DigestAlgorithm.Sha512:    return HashAlgorithms.Sha512;
+			case DigestAlgorithm.Sha224:    return HashAlgorithms.Sha224;
 			case DigestAlgorithm.MD4: throw new NotSupportedException ("The MD4 digest algorithm is not supported.");
 			default: throw new ArgumentOutOfRangeException ("digestAlgo");
 			}
@@ -671,13 +672,13 @@ namespace MimeKit.Cryptography {
 			var memory = new MemoryBlockStream ();
 
 			using (var armored = new ArmoredOutputStream (memory)) {
-				var compresser = new PgpCompressedDataGenerator (CompressionAlgorithmTag.ZLib);
+				var compresser = new PgpCompressedDataGenerator (CompressionAlgorithms.ZLib);
 				using (var compressed = compresser.Open (armored)) {
 					var signatureGenerator = new PgpSignatureGenerator (signer.PublicKey.Algorithm, hashAlgorithm);
 					var buf = new byte[4096];
 					int nread;
 
-					signatureGenerator.InitSign (PgpSignature.CanonicalTextDocument, GetPrivateKey (signer));
+					signatureGenerator.InitSign (PgpSignatures.CanonicalTextDocument, GetPrivateKey (signer));
 
 					while ((nread = content.Read (buf, 0, buf.Length)) > 0)
 						signatureGenerator.Update (buf, 0, nread);
@@ -698,11 +699,11 @@ namespace MimeKit.Cryptography {
 
 		/// <summary>
 		/// Gets the equivalent <see cref="DigestAlgorithm"/> for the specified
-		/// <see cref="Org.BouncyCastle.Bcpg.HashAlgorithmTag"/>.
+		/// <see cref="Org.BouncyCastle.Bcpg.HashAlgorithms"/>.
 		/// </summary>
 		/// <remarks>
 		/// Gets the equivalent <see cref="DigestAlgorithm"/> for the specified
-		/// <see cref="Org.BouncyCastle.Bcpg.HashAlgorithmTag"/>.
+		/// <see cref="Org.BouncyCastle.Bcpg.HashAlgorithms"/>.
 		/// </remarks>
 		/// <returns>The digest algorithm.</returns>
 		/// <param name="hashAlgorithm">The hash algorithm.</param>
@@ -712,31 +713,31 @@ namespace MimeKit.Cryptography {
 		/// <exception cref="System.NotSupportedException">
 		/// <paramref name="hashAlgorithm"/> does not have an equivalent <see cref="DigestAlgorithm"/> value.
 		/// </exception>
-		public static DigestAlgorithm GetDigestAlgorithm (HashAlgorithmTag hashAlgorithm)
+		public static DigestAlgorithm GetDigestAlgorithm (HashAlgorithms hashAlgorithm)
 		{
 			switch (hashAlgorithm) {
-			case HashAlgorithmTag.MD5:           return DigestAlgorithm.MD5;
-			case HashAlgorithmTag.Sha1:          return DigestAlgorithm.Sha1;
-			case HashAlgorithmTag.RipeMD160:     return DigestAlgorithm.RipeMD160;
-			case HashAlgorithmTag.DoubleSha:     return DigestAlgorithm.DoubleSha;
-			case HashAlgorithmTag.MD2:           return DigestAlgorithm.MD2;
-			case HashAlgorithmTag.Tiger192:      return DigestAlgorithm.Tiger192;
-			case HashAlgorithmTag.Haval5pass160: return DigestAlgorithm.Haval5160;
-			case HashAlgorithmTag.Sha256:        return DigestAlgorithm.Sha256;
-			case HashAlgorithmTag.Sha384:        return DigestAlgorithm.Sha384;
-			case HashAlgorithmTag.Sha512:        return DigestAlgorithm.Sha512;
-			case HashAlgorithmTag.Sha224:        return DigestAlgorithm.Sha224;
+			case HashAlgorithms.MD5:           return DigestAlgorithm.MD5;
+			case HashAlgorithms.Sha1:          return DigestAlgorithm.Sha1;
+			case HashAlgorithms.RipeMD160:     return DigestAlgorithm.RipeMD160;
+			case HashAlgorithms.DoubleSha:     return DigestAlgorithm.DoubleSha;
+			case HashAlgorithms.MD2:           return DigestAlgorithm.MD2;
+			case HashAlgorithms.Tiger192:      return DigestAlgorithm.Tiger192;
+			case HashAlgorithms.Haval5pass160: return DigestAlgorithm.Haval5160;
+			case HashAlgorithms.Sha256:        return DigestAlgorithm.Sha256;
+			case HashAlgorithms.Sha384:        return DigestAlgorithm.Sha384;
+			case HashAlgorithms.Sha512:        return DigestAlgorithm.Sha512;
+			case HashAlgorithms.Sha224:        return DigestAlgorithm.Sha224;
 			default: throw new ArgumentOutOfRangeException ("hashAlgorithm");
 			}
 		}
 
 		/// <summary>
 		/// Gets the equivalent <see cref="PublicKeyAlgorithm"/> for the specified
-		/// <see cref="Org.BouncyCastle.Bcpg.PublicKeyAlgorithmTag"/>.
+		/// <see cref="Org.BouncyCastle.Bcpg.PublicKeyAlgorithms"/>.
 		/// </summary>
 		/// <remarks>
 		/// Gets the equivalent <see cref="PublicKeyAlgorithm"/> for the specified
-		/// <see cref="Org.BouncyCastle.Bcpg.PublicKeyAlgorithmTag"/>.
+		/// <see cref="Org.BouncyCastle.Bcpg.PublicKeyAlgorithms"/>.
 		/// </remarks>
 		/// <returns>The public-key algorithm.</returns>
 		/// <param name="algorithm">The public-key algorithm.</param>
@@ -746,18 +747,18 @@ namespace MimeKit.Cryptography {
 		/// <exception cref="System.NotSupportedException">
 		/// <paramref name="algorithm"/> does not have an equivalent <see cref="PublicKeyAlgorithm"/> value.
 		/// </exception>
-		public static PublicKeyAlgorithm GetPublicKeyAlgorithm (PublicKeyAlgorithmTag algorithm)
+		public static PublicKeyAlgorithm GetPublicKeyAlgorithm (PublicKeyAlgorithms algorithm)
 		{
 			switch (algorithm) {
-			case PublicKeyAlgorithmTag.RsaGeneral:     return PublicKeyAlgorithm.RsaGeneral;
-			case PublicKeyAlgorithmTag.RsaEncrypt:     return PublicKeyAlgorithm.RsaEncrypt;
-			case PublicKeyAlgorithmTag.RsaSign:        return PublicKeyAlgorithm.RsaSign;
-			case PublicKeyAlgorithmTag.ElGamalEncrypt: return PublicKeyAlgorithm.ElGamalEncrypt;
-			case PublicKeyAlgorithmTag.Dsa:            return PublicKeyAlgorithm.Dsa;
-			case PublicKeyAlgorithmTag.EC:             return PublicKeyAlgorithm.EllipticCurve;
-			case PublicKeyAlgorithmTag.ECDsa:          return PublicKeyAlgorithm.EllipticCurveDsa;
-			case PublicKeyAlgorithmTag.ElGamalGeneral: return PublicKeyAlgorithm.ElGamalGeneral;
-			case PublicKeyAlgorithmTag.DiffieHellman:  return PublicKeyAlgorithm.DiffieHellman;
+			case PublicKeyAlgorithms.RsaGeneral:     return PublicKeyAlgorithm.RsaGeneral;
+			case PublicKeyAlgorithms.RsaEncrypt:     return PublicKeyAlgorithm.RsaEncrypt;
+			case PublicKeyAlgorithms.RsaSign:        return PublicKeyAlgorithm.RsaSign;
+			case PublicKeyAlgorithms.ElGamalEncrypt: return PublicKeyAlgorithm.ElGamalEncrypt;
+			case PublicKeyAlgorithms.Dsa:            return PublicKeyAlgorithm.Dsa;
+			case PublicKeyAlgorithms.EC:             return PublicKeyAlgorithm.EllipticCurve;
+			case PublicKeyAlgorithms.ECDsa:          return PublicKeyAlgorithm.EllipticCurveDsa;
+			case PublicKeyAlgorithms.ElGamalGeneral: return PublicKeyAlgorithm.ElGamalGeneral;
+			case PublicKeyAlgorithms.DiffieHellman:  return PublicKeyAlgorithm.DiffieHellman;
 			default: throw new ArgumentOutOfRangeException ("algorithm");
 			}
 		}
@@ -768,7 +769,7 @@ namespace MimeKit.Cryptography {
 			var buf = new byte[4096];
 			int nread;
 
-			for (int i = 0; i < signatureList.Count; i++) {
+			for (var i = 0UL; i < signatureList.Count; i++) {
 				var pubkey = PublicKeyRingBundle.GetPublicKey (signatureList[i].KeyId);
 				var signature = new OpenPgpDigitalSignature (pubkey, signatureList[i]) {
 					PublicKeyAlgorithm = GetPublicKeyAlgorithm (signatureList[i].KeyAlgorithm),
@@ -802,7 +803,7 @@ namespace MimeKit.Cryptography {
 					for (int i = 0; i < signatures.Count; i++) {
 						if (signatures[i].SignerCertificate != null) {
 							var pgp = (OpenPgpDigitalSignature) signatures[i];
-							pgp.Signature.Update (buf, 0, nread);
+							pgp.Signature.Update (buf, 0, (UInt64) nread);
 						}
 					}
 				}
@@ -887,7 +888,7 @@ namespace MimeKit.Cryptography {
 
 		static Stream Compress (Stream content)
 		{
-			var compresser = new PgpCompressedDataGenerator (CompressionAlgorithmTag.ZLib);
+			var compresser = new PgpCompressedDataGenerator (CompressionAlgorithms.ZLib);
 			var memory = new MemoryBlockStream ();
 
 			using (var compressed = compresser.Open (memory)) {
@@ -926,21 +927,21 @@ namespace MimeKit.Cryptography {
 			return memory;
 		}
 
-		static SymmetricKeyAlgorithmTag GetSymmetricKeyAlgorithm (EncryptionAlgorithm algorithm)
+		static SymmetricKeyAlgorithms GetSymmetricKeyAlgorithm (EncryptionAlgorithm algorithm)
 		{
 			switch (algorithm) {
-			case EncryptionAlgorithm.Aes128:      return SymmetricKeyAlgorithmTag.Aes128;
-			case EncryptionAlgorithm.Aes192:      return SymmetricKeyAlgorithmTag.Aes192;
-			case EncryptionAlgorithm.Aes256:      return SymmetricKeyAlgorithmTag.Aes256;
-			case EncryptionAlgorithm.Camellia128: return SymmetricKeyAlgorithmTag.Camellia128;
-			case EncryptionAlgorithm.Camellia192: return SymmetricKeyAlgorithmTag.Camellia192;
-			case EncryptionAlgorithm.Camellia256: return SymmetricKeyAlgorithmTag.Camellia256;
-			case EncryptionAlgorithm.Cast5:       return SymmetricKeyAlgorithmTag.Cast5;
-			case EncryptionAlgorithm.Des:         return SymmetricKeyAlgorithmTag.Des;
-			case EncryptionAlgorithm.TripleDes:   return SymmetricKeyAlgorithmTag.TripleDes;
-			case EncryptionAlgorithm.Idea:        return SymmetricKeyAlgorithmTag.Idea;
-			case EncryptionAlgorithm.Blowfish:    return SymmetricKeyAlgorithmTag.Blowfish;
-			case EncryptionAlgorithm.Twofish:     return SymmetricKeyAlgorithmTag.Twofish;
+			case EncryptionAlgorithm.Aes128:      return SymmetricKeyAlgorithms.Aes128;
+			case EncryptionAlgorithm.Aes192:      return SymmetricKeyAlgorithms.Aes192;
+			case EncryptionAlgorithm.Aes256:      return SymmetricKeyAlgorithms.Aes256;
+			case EncryptionAlgorithm.Camellia128: return SymmetricKeyAlgorithms.Camellia128;
+			case EncryptionAlgorithm.Camellia192: return SymmetricKeyAlgorithms.Camellia192;
+			case EncryptionAlgorithm.Camellia256: return SymmetricKeyAlgorithms.Camellia256;
+			case EncryptionAlgorithm.Cast5:       return SymmetricKeyAlgorithms.Cast5;
+			case EncryptionAlgorithm.Des:         return SymmetricKeyAlgorithms.Des;
+			case EncryptionAlgorithm.TripleDes:   return SymmetricKeyAlgorithms.TripleDes;
+			case EncryptionAlgorithm.Idea:        return SymmetricKeyAlgorithms.Idea;
+			case EncryptionAlgorithm.Blowfish:    return SymmetricKeyAlgorithms.Blowfish;
+			case EncryptionAlgorithm.Twofish:     return SymmetricKeyAlgorithms.Twofish;
 			default: throw new NotSupportedException ();
 			}
 		}
@@ -1149,12 +1150,12 @@ namespace MimeKit.Cryptography {
 			if (count == 0)
 				throw new ArgumentException ("No recipients specified.", "recipients");
 
-			var compresser = new PgpCompressedDataGenerator (CompressionAlgorithmTag.ZLib);
+			var compresser = new PgpCompressedDataGenerator(CompressionAlgorithms.ZLib);
 
 			using (var compressed = new MemoryBlockStream ()) {
 				using (var signed = compresser.Open (compressed)) {
 					var signatureGenerator = new PgpSignatureGenerator (signer.PublicKey.Algorithm, hashAlgorithm);
-					signatureGenerator.InitSign (PgpSignature.CanonicalTextDocument, GetPrivateKey (signer));
+					signatureGenerator.InitSign (PgpSignatures.CanonicalTextDocument, GetPrivateKey (signer));
 					var subpacket = new PgpSignatureSubpacketGenerator ();
 
 					foreach (string userId in signer.PublicKey.GetUserIds ()) {
@@ -1317,7 +1318,7 @@ namespace MimeKit.Cryptography {
 
 							onepassList = new List<IDigitalSignature> ();
 
-							for (int i = 0; i < onepasses.Count; i++) {
+							for (var i = 0UL; i < onepasses.Count; i++) {
 								var onepass = onepasses[i];
 								var pubkey = PublicKeyRingBundle.GetPublicKey (onepass.KeyId);
 
@@ -1371,8 +1372,8 @@ namespace MimeKit.Cryptography {
 
 				if (signatureList != null) {
 					if (onepassList != null && signatureList.Count == onepassList.Count) {
-						for (int i = 0; i < onepassList.Count; i++) {
-							var pgp = (OpenPgpDigitalSignature) onepassList[i];
+						for (var i = 0UL; i < (UInt64) onepassList.Count; i++) {
+							var pgp = (OpenPgpDigitalSignature) onepassList[(Int32) i];
 							pgp.CreationDate = signatureList[i].CreationTime;
 							pgp.Signature = signatureList[i];
 						}
@@ -1579,8 +1580,8 @@ namespace MimeKit.Cryptography {
 
 				int publicKeysAdded = 0;
 
-				foreach (PgpPublicKeyRing pubring in imported.GetKeyRings ()) {
-					if (!PublicKeyRingBundle.Contains (pubring.GetPublicKey ().KeyId)) {
+				foreach (var pubring in imported.KeyRings) {
+					if (!PublicKeyRingBundle.Contains(pubring.PublicKey.KeyId)) {
 						PublicKeyRingBundle = PgpPublicKeyRingBundle.AddPublicKeyRing (PublicKeyRingBundle, pubring);
 						publicKeysAdded++;
 					}
@@ -1618,8 +1619,8 @@ namespace MimeKit.Cryptography {
 
 				int secretKeysAdded = 0;
 
-				foreach (PgpSecretKeyRing secring in imported.GetKeyRings ()) {
-					if (!SecretKeyRingBundle.Contains (secring.GetSecretKey ().KeyId)) {
+				foreach (var secring in imported.GetKeyRings ()) {
+					if (!SecretKeyRingBundle.Contains (secring.FirstSecretKey.KeyId)) {
 						SecretKeyRingBundle = PgpSecretKeyRingBundle.AddSecretKeyRing (SecretKeyRingBundle, secring);
 						secretKeysAdded++;
 					}

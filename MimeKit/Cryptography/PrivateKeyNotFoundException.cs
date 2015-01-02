@@ -109,7 +109,7 @@ namespace MimeKit.Cryptography {
 		/// <exception cref="System.ArgumentNullException">
 		/// <paramref name="keyid"/> is <c>null</c>.
 		/// </exception>
-		public PrivateKeyNotFoundException (long keyid, string message) : base (message)
+		public PrivateKeyNotFoundException (UInt64 keyid, string message) : base (message)
 		{
 			KeyId = keyid.ToString ("X");
 		}

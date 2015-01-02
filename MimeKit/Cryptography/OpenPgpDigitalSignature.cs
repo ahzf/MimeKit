@@ -138,7 +138,7 @@ namespace MimeKit.Cryptography {
 				if (OnePassSignature != null)
 					valid = OnePassSignature.Verify (Signature);
 				else
-					valid = Signature.Verify ();
+					valid = Signature.IsValid;
 				return valid.Value;
 			} catch (Exception ex) {
 				var message = string.Format ("Failed to verify digital signature: {0}", ex.Message);
